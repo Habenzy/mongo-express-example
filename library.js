@@ -10,7 +10,7 @@ class DataStore {
   }
   
   async openConnect() {
-    if(!isConnected) {
+    if(!this.isConnected) {
       const client = new MongoClient(this.url, { useUnifiedTopology: true });
       await client.connect();
       const dataBase = client.db(this.dbName);
@@ -25,80 +25,67 @@ class DataStore {
     }
   }
 
-  //Print all books in collection
+  //return all documents in collection
   async getAll() {
     const collection = await this.openConnect()
     //find all documents in collection, and assign the cursor
     let cursor = await collection.find({});
 
-    //iterate over the cursor to display all books
-    let resultArr = await cursor.map((book) => {
-      return book
+    //iterate over the cursor to store all documents
+    let resultArr = []
+    
+    await cursor.forEach((document) => {
+      resultArr.push(document)
     });
 
     return resultArr
 
-  } 
-
+  }
 
   async searchByKey(searchType, value) {//Search by specific parameters
-    const collection = this.openConnect()
+    const collection = await this.openConnect()
+
     //square brackets allow variable values to be used as keys
     let cursor = await collection.find({ [searchType]: value });
-    //iterate over cursor to display all matching results
-    let resultArr = await cursor.map((book) => {
-      return book
+    //iterate over cursor to store all matching results
+    let resultArr = []
+
+    await cursor.forEach((document) => {
+      resultArr.push(document)
     });
 
     return resultArr
   }
 
+  async addEntry(data) { //create entry for database
+    const collection = await this.openConnect()
 
-  else if (answer === "add book") { //create entry for database
+    await collection.insertOne(data);
 
-    let resOne = await ask("What is the title of the book? ");
-    let resTwo = await ask("Who is the author? ");
+  }
 
-    //get user input, and format for DB entry, implicit scheme
-    await collection.insertOne({ title: resOne, author: resTwo });
-
-  } 
-  else if (answer === "update book") {
-
-    //show the user all available options
-    let cursor = await collection.find({});
-    console.log("all available books:\n");
-
-    await cursor.forEach((book) => {
-      console.log(`title: ${book.title}; ID: ${book._id}`);
-    });
-
-    let bookToUpdate = await ask(
-      "Please enter the ID of the book you want to update: "
-    );
-    //set values to be updated
-    let newAuthor = await ask("Who is the author? ");
-    let newTitle = await ask("What is the title? ");
-
+  async updateEntry(targetId, update) {
+    const collection = await this.openConnect()
     //update methods take two arguments
     await collection.updateOne(
-      { _id: ObjectId(bookToUpdate) },//look for a doc that matches this criteria
-      { $set: { author: newAuthor, title: newTitle } }//update to be applied, marked by atomic operator $set
+      { _id: ObjectId(targetId) },//look for a doc that matches this criteria
+      { $set: update }//update to be applied, marked by atomic operator $set
     );
   } 
-  else if (answer === "remove book") {//delete a document
-    //tell the user the operations that are available
-    let cursor = await collection.find({});
-    console.log("all available books:\n");
 
-    await cursor.forEach((book) => {
-      console.log(`title: ${book.title}; ID: ${book._id}`);
-    });
-
-    let remove = await ask("Please enter the ID of the book to be removed: ")
+  async removeEntry(targetId) {//delete a document
+    const collection = await this.openConnect()
     //delete the doc that matches the query
-    collection.deleteOne({_id: ObjectId(remove)})
+    await collection.deleteOne({_id: ObjectId(targetId)})
+  }
+
+  async closeConnect() {
+    if(this.isConnected) {
+      await this.isConnected.close()
+    } else {
+      console.log('no currently active connection')
+    }
   }
 }
 
-// start();
+module.exports = DataStore
